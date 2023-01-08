@@ -1,5 +1,6 @@
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Camera } from '@capacitor/camera';
+import { scanFileSystem } from './scan-file-system';
 
 window.customElements.define(
   'capacitor-welcome',
@@ -108,6 +109,12 @@ window.customElements.define(
           console.warn('User cancelled', e);
         }
       });
+    
+      scanFileSystem()
+        .catch(err => {
+            console.error(`Failed with error:`);
+            console.error(err);
+        })
     }
   }
 );
