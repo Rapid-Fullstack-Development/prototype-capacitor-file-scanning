@@ -14,9 +14,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^4.6.1",
-    "@capacitor/camera": "latest",
     "@capacitor/core": "latest",
-    "@capacitor/filesystem": "^4.1.4",
     "@capacitor/splash-screen": "latest"
   },
   "devDependencies": {
