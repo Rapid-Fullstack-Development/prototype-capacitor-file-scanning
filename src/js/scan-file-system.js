@@ -1,8 +1,7 @@
 import { registerPlugin } from '@capacitor/core';
 
-const Echo = registerPlugin('Echo');
+const FileUploader = registerPlugin('FileUploader');
 
 export async function scanFileSystem() {
-    const { value } = await Echo.echo({ value: 'Hello World!' });
-    console.log('Response from native:', value);
+    await FileUploader.startSync();
 }

@@ -6,6 +6,12 @@ This code accompanies chapter 4 of the book [Rapid Fullstack Development](https:
 
 Follow the author on [Twitter](https://twitter.com/codecapers) for updates.
 
+## Backend
+
+You need to be running the Photosphere backend for this to work:
+
+https://github.com/Rapid-Fullstack-Development/photosphere-monolithic-backend
+
 ## Setup
 
 Clone the repository and install dependencies:
@@ -29,8 +35,9 @@ You need Android Studio installed for this.
 
 ```bash 
 npm run build 
+npx cap update
 npx cap sync
 npx cap open android
 ```
 
-Now buuild and run using Android Studio.
+Now build and run using Android Studio.
