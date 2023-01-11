@@ -46,6 +46,16 @@ class FileDetails {
 //
 public class UploadWorker extends Worker {
 
+    //
+    // Setting to true when the work is running.
+    //
+    public static boolean running = false;
+
+    //
+    // Setting this to true aborts the work.
+    //
+    public static boolean stopWork = false;
+
     public static int nextId = 0;
     public int id = ++nextId;
 
@@ -67,6 +77,9 @@ public class UploadWorker extends Worker {
 
         //TODO: Would be good to mark all previously recorded files as "unchecked".
 
+        this.running = true;
+        this.stopWork = false;
+
         //
         // Scan the file system for images.
         //
@@ -76,6 +89,9 @@ public class UploadWorker extends Worker {
         // Upload files that have been found.
         //
         this.uploadFiles();
+
+        this.running = false;
+        this.stopWork = false; // Reset, in case the work was stopped.
 
         // Indicate whether the work finished successfully with the Result
         return Result.success();
@@ -98,12 +114,22 @@ public class UploadWorker extends Worker {
     //
     private void scanDirectory(File directory) {
 
+        if (stopWork) {
+            Log.i("Dbg", "Stopping work.");
+            return;
+        }
+
         File[] files = directory.listFiles();
         if (files == null) {
             return;
         }
 
         for (File file : files) {
+            if (stopWork) {
+                Log.i("Dbg", "Stopping work.");
+                return;
+            }
+
             if (file.isDirectory()) {
                 if (file.getName().equals(".thumbnails")) {
                     Log.i("Dbg[" + id + "]", "Skipping .thumbnails directory.");
@@ -162,6 +188,11 @@ public class UploadWorker extends Worker {
         Gson gson = new Gson();
 
         for (Map.Entry<String, Object> entry : ((Map<String, Object>) sharedPreferences.getAll()).entrySet()) {
+            if (stopWork) {
+                Log.i("Dbg", "Stopping work.");
+                return;
+            }
+
             String filePath = entry.getKey();
             File file = new File(filePath);
             String json = entry.getValue().toString();

@@ -13,11 +13,5 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(FileUploader.class);
         super.onCreate(savedInstanceState);
-
-        if (!Environment.isExternalStorageManager()) {
-            Intent intent = new Intent();
-            intent.setAction(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-            startActivity(intent);
-        }
     }
 }

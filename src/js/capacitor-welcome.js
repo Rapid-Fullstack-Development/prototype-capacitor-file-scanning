@@ -1,17 +1,19 @@
 import { SplashScreen } from '@capacitor/splash-screen';
-import { scanFileSystem } from './scan-file-system';
+import { registerPlugin } from '@capacitor/core';
+
+const FileUploader = registerPlugin('FileUploader');
 
 window.customElements.define(
-  'capacitor-welcome',
-  class extends HTMLElement {
-    constructor() {
-      super();
+    'capacitor-welcome',
+    class extends HTMLElement {
+        constructor() {
+            super();
 
-      SplashScreen.hide();
+            SplashScreen.hide();
 
-      const root = this.attachShadow({ mode: 'open' });
+            const root = this.attachShadow({ mode: 'open' });
 
-      root.innerHTML = `
+            root.innerHTML = `
     <style>
       :host {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
@@ -54,6 +56,10 @@ window.customElements.define(
       main pre {
         white-space: pre-line;
       }
+
+      .hidden {
+        display: none;
+      }
     </style>
     <div>
       <capacitor-welcome-titlebar>
@@ -64,34 +70,107 @@ window.customElements.define(
           Press the button start uploading files to the backend.
         </p>
         <p>
-          <button class="button" id="start-sync">Start file sync</button>
+          <button class="button" id="request-permission">Request permissions to manage files</button>
+          <span id="permissions-granted-msg" class="hidden">Permissions granted</span>
+        </p>
+        <p>
+          <button class="button" id="stop-sync" class="hidden">Stop file sync</button>
+        </p>
+        <p>
+          <button class="button" id="start-sync" class="hidden">Start file sync</button>
         </p>
       </main>
     </div>
     `;
-    }
+        }
 
-    connectedCallback() {
-      const self = this;
+        connectedCallback() {
+            const self = this;
 
-      self.shadowRoot.querySelector('#start-sync').addEventListener('click', async function (e) {
-        scanFileSystem()
-        .catch(err => {
-            console.error(`Failed with error:`);
-            console.error(err);
-        })
-      });
+            const startSyncButton = self.shadowRoot.querySelector('#start-sync')
+            startSyncButton.addEventListener('click', async function (e) {
+                FileUploader.startSync()
+                    .catch(err => {
+                        console.error(`Failed with error:`);
+                        console.error(err);
+                    })
+            });
+
+            const stopSyncButton = self.shadowRoot.querySelector('#stop-sync');
+            stopSyncButton.addEventListener('click', async function (e) {
+                FileUploader.stopSync()
+                    .catch(err => {
+                        console.error(`Failed with error:`);
+                        console.error(err);
+                    })
+            });
+
+            const requestPermissionButton = self.shadowRoot.querySelector('#request-permission');
+            requestPermissionButton.addEventListener('click', async function (e) {
+                FileUploader.requestPermissions()
+                    .then(() => {
+                        return FileUploader.checkPermissions()
+                            .then(result => {
+                                if (result.havePermissions) {
+                                    permissionsGrantedMsg.classList.remove("hidden");
+                                }
+                                else {
+                                    permissionsGrantedMsg.classList.add("hidden");
+                                }
+                            });
+                    })
+                    .catch(err => {
+                        console.error(`Failed with error:`);
+                        console.error(err);
+                    });
+            });
+
+            function checkPermissions() {
+                FileUploader.checkPermissions()
+                    .then(result => {
+                        const permissionsGrantedMsg = self.shadowRoot.querySelector('#permissions-granted-msg');
+                        if (result.havePermissions) {
+                            permissionsGrantedMsg.classList.remove("hidden");
+                        }
+                        else {
+                            permissionsGrantedMsg.classList.add("hidden");
+                        }
+
+                        setTimeout(() => checkPermissions(), 1000);
+                    });
+            }
+
+            checkPermissions();
+
+            function checkSyncStatus() {
+                FileUploader.checkSyncStatus()
+                    .then(result => {
+                        if (result.syncing) {
+                            startSyncButton.classList.add("hidden");
+                            stopSyncButton.classList.remove("hidden");
+                        }
+                        else {
+                            startSyncButton.classList.remove("hidden");
+                            stopSyncButton.classList.add("hidden");
+                        }
+
+                        setTimeout(() => checkSyncStatus(), 1000);
+                    });
+            }
+
+            checkSyncStatus();
+
+        }
     }
-  }
 );
 
 window.customElements.define(
-  'capacitor-welcome-titlebar',
-  class extends HTMLElement {
-    constructor() {
-      super();
-      const root = this.attachShadow({ mode: 'open' });
-      root.innerHTML = `
+    'capacitor-welcome-titlebar',
+    class extends HTMLElement {
+        constructor() {
+            super();
+            const root = this.attachShadow({ mode: 'open' });
+            root.innerHTML = `
     <style>
       :host {
         position: relative;
@@ -110,6 +189,6 @@ window.customElements.define(
     </style>
     <slot></slot>
     `;
+        }
     }
-  }
 );
