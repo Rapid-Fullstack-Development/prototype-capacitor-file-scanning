@@ -87,6 +87,17 @@ window.customElements.define(
         connectedCallback() {
             const self = this;
 
+            const backend = import.meta.env.VITE_BACKEND_URL;
+            if (!backend) {
+                console.error(`VITE_BACKEND_URL environment variable should be set.`);
+            }
+            else {
+                console.log(`VITE_BACKEND_URL environment variable is set to ${backend}`);
+            }
+            FileUploader.updateSettings({
+                backend: backend,
+            });
+
             const startSyncButton = self.shadowRoot.querySelector('#start-sync')
             startSyncButton.addEventListener('click', async function (e) {
                 FileUploader.startSync()
@@ -134,9 +145,9 @@ window.customElements.define(
                         }
                         else {
                             permissionsGrantedMsg.classList.add("hidden");
-                        }
 
-                        setTimeout(() => checkPermissions(), 1000);
+                            setTimeout(() => checkPermissions(), 1000);
+                        }
                     });
             }
 
@@ -159,7 +170,7 @@ window.customElements.define(
                             stopSyncButton.classList.add("hidden");
                         }
 
-                        setTimeout(() => checkSyncStatus(), 1000);
+                        setTimeout(() => checkSyncStatus(), 5000);
                     });
             }
 

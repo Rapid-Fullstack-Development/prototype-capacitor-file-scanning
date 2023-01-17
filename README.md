@@ -34,6 +34,7 @@ npm start
 You need Android Studio installed for this.
 
 ```bash 
+set VITE_BACKEND_URL=<url-or-lan-ip-for-your-backend>
 npm run build 
 npx cap update
 npx cap sync

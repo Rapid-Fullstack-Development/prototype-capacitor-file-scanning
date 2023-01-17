@@ -31,6 +31,14 @@ import com.google.gson.Gson;
 public class FileUploader extends Plugin {
 
     @PluginMethod()
+    public void updateSettings(PluginCall call) {
+        SharedPreferences settings = this.getActivity().getApplicationContext().getSharedPreferences("settings", MODE_PRIVATE);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("backend", call.getString("backend"));
+        call.resolve();
+    }
+
+    @PluginMethod()
     public void checkPermissions(PluginCall call) {
         JSObject ret = new JSObject();
         ret.put("havePermissions", Environment.isExternalStorageManager());
@@ -114,9 +122,10 @@ public class FileUploader extends Plugin {
             file.put("type", fileDetails.contentType);
             file.put("hash", fileDetails.hash);
             file.put("uploaded", fileDetails.uploaded);
+            file.put("date", fileDetails.creationDate);
             files.put(file);
         }
-        
+
         JSObject ret = new JSObject();
         ret.put("files", files);
         call.resolve(ret);

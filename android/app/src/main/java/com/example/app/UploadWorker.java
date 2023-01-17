@@ -23,6 +23,7 @@ import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
+import java.util.Date;
 import java.util.Map;
 
 class FileDetails {
@@ -31,13 +32,15 @@ class FileDetails {
     public String contentType;
     public String hash;
     public Boolean uploaded;
+    public Date creationDate;
 
-    public FileDetails(String name, String path, String contentType) {
+    public FileDetails(String name, String path, String contentType, Date creationDate) {
         this.name = name;
         this.path = path;
         this.contentType = contentType;
         this.hash = null;
         this.uploaded = false;
+        this.creationDate = creationDate;
     }
 }
 
@@ -60,11 +63,18 @@ public class UploadWorker extends Worker {
     public int id = ++nextId;
 
     //
+    // Records settings.
+    //
+    SharedPreferences settings = getApplicationContext().getSharedPreferences("settings", MODE_PRIVATE);
+
+    //
+    // Records files that have been found.
+    //
     // https://developer.android.com/reference/android/content/SharedPreferences
     // https://www.androidauthority.com/how-to-store-data-locally-in-android-app-717190/
     // https://stackoverflow.com/a/49938549/25868
     //
-    SharedPreferences sharedPreferences = getApplicationContext().getSharedPreferences("local-files", MODE_PRIVATE);
+    SharedPreferences filePrefs = getApplicationContext().getSharedPreferences("local-files", MODE_PRIVATE);
 
     public UploadWorker(
             @NonNull Context context,
@@ -138,16 +148,17 @@ public class UploadWorker extends Worker {
                 scanDirectory(file);
             }
             else if (file.getName().endsWith(".png")) {
-                String existingEntry = sharedPreferences.getString(file.getPath(), null);
+                String existingEntry = filePrefs.getString(file.getPath(), null);
                 if (existingEntry == null) {
                     Log.i("Dbg[" + id + "]", "No record yet for " + file.getPath());
 
                     // https://developer.android.com/reference/android/content/SharedPreferences.Editor
-                    SharedPreferences.Editor editor = sharedPreferences.edit();
+                    SharedPreferences.Editor editor = filePrefs.edit();
 
                     // https://stackoverflow.com/a/18463758/25868
                     Gson gson = new Gson();
-                    String json = gson.toJson(new FileDetails(file.getName(), file.getPath(), "image/png"));
+                    Date lastModifiedDate = new Date(file.lastModified());
+                    String json = gson.toJson(new FileDetails(file.getName(), file.getPath(), "image/png", lastModifiedDate));
                     editor.putString(file.getPath(), json);
                     editor.commit();
                 }
@@ -158,16 +169,17 @@ public class UploadWorker extends Worker {
                 }
             }
             else if (file.getName().endsWith(".jpg")) {
-                String existingEntry = sharedPreferences.getString(file.getPath(), null);
+                String existingEntry = filePrefs.getString(file.getPath(), null);
                 if (existingEntry == null) {
                     Log.i("Dbg[" + id + "]", "No record yet for " + file.getPath());
 
                     // https://developer.android.com/reference/android/content/SharedPreferences.Editor
-                    SharedPreferences.Editor editor = sharedPreferences.edit();
+                    SharedPreferences.Editor editor = filePrefs.edit();
 
                     // https://stackoverflow.com/a/18463758/25868
                     Gson gson = new Gson();
-                    String json = gson.toJson(new FileDetails(file.getName(), file.getPath(), "image/jpg"));
+                    Date lastModifiedDate = new Date(file.lastModified());
+                    String json = gson.toJson(new FileDetails(file.getName(), file.getPath(), "image/jpg", lastModifiedDate));
                     editor.putString(file.getPath(), json);
                     editor.commit();
                 }
@@ -187,7 +199,7 @@ public class UploadWorker extends Worker {
         // https://stackoverflow.com/a/18463758/25868
         Gson gson = new Gson();
 
-        for (Map.Entry<String, Object> entry : ((Map<String, Object>) sharedPreferences.getAll()).entrySet()) {
+        for (Map.Entry<String, Object> entry : ((Map<String, Object>) filePrefs.getAll()).entrySet()) {
             if (stopWork) {
                 Log.i("Dbg", "Stopping work.");
                 return;
@@ -213,7 +225,7 @@ public class UploadWorker extends Worker {
                 //
                 // Save hash.
                 //
-                SharedPreferences.Editor editor = sharedPreferences.edit();
+                SharedPreferences.Editor editor = filePrefs.edit();
                 editor.putString(filePath, gson.toJson(fileDetails));
                 editor.commit();
             }
@@ -230,7 +242,7 @@ public class UploadWorker extends Worker {
                     //
                     // Save uploaded state.
                     //
-                    SharedPreferences.Editor editor = sharedPreferences.edit();
+                    SharedPreferences.Editor editor = filePrefs.edit();
                     editor.putString(filePath, gson.toJson(fileDetails));
                     editor.commit();
                 }
@@ -282,7 +294,8 @@ public class UploadWorker extends Worker {
     //
     public boolean checkUploaded(String hash) {
         try {
-            URL url = new URL("http://192.168.20.12:3000/check-asset?hash=" + hash);
+            String baseURL = settings.getString("backend", null);
+            URL url = new URL(baseURL + "/check-asset?hash=" + hash);
             HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
             urlConnection.setRequestMethod("GET");
             urlConnection.connect();
@@ -305,7 +318,8 @@ public class UploadWorker extends Worker {
     private void uploadFile(File file, String hash, String contentType) {
         HttpURLConnection urlConnection = null;
         try {
-            URL url = new URL("http://192.168.20.12:3000/asset");
+            String baseURL = settings.getString("backend", null);
+            URL url = new URL(baseURL + "/asset");
             urlConnection = (HttpURLConnection) url.openConnection();
 
             urlConnection.setUseCaches(false);
