@@ -143,6 +143,11 @@ window.customElements.define(
             checkPermissions();
 
             function checkSyncStatus() {
+                FileUploader.getFiles()
+                    .then(result => {
+                        console.log(result);
+                    });
+
                 FileUploader.checkSyncStatus()
                     .then(result => {
                         if (result.syncing) {

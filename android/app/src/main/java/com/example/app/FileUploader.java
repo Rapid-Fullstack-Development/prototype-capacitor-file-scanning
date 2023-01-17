@@ -1,6 +1,9 @@
 package com.example.app;
 
+import static android.content.Context.MODE_PRIVATE;
+
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Environment;
 import android.provider.Settings;
 import android.util.Log;
@@ -10,6 +13,7 @@ import androidx.work.WorkInfo;
 import androidx.work.WorkManager;
 import androidx.work.WorkRequest;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -17,7 +21,11 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import com.google.gson.Gson;
 
 @CapacitorPlugin(name = "FileUploader")
 public class FileUploader extends Plugin {
@@ -91,8 +99,26 @@ public class FileUploader extends Plugin {
         call.resolve();
     }
 
-    //todo: have permissions?
-    //      request permissions
-    //todo: is sync in progress?
-    //  get list of files
+    @PluginMethod()
+    public void getFiles(PluginCall call) {
+
+        JSArray files = new JSArray();
+        SharedPreferences sharedPreferences = this.getActivity().getApplicationContext().getSharedPreferences("local-files", MODE_PRIVATE);
+        for (Map.Entry<String, Object> entry : ((Map<String, Object>) sharedPreferences.getAll()).entrySet()) {
+            String json = entry.getValue().toString();
+            Gson gson = new Gson();
+            FileDetails fileDetails = gson.fromJson(json, FileDetails.class);
+
+            JSObject file = new JSObject();
+            file.put("name", fileDetails.name);
+            file.put("type", fileDetails.contentType);
+            file.put("hash", fileDetails.hash);
+            file.put("uploaded", fileDetails.uploaded);
+            files.put(file);
+        }
+        
+        JSObject ret = new JSObject();
+        ret.put("files", files);
+        call.resolve(ret);
+    }
 }
