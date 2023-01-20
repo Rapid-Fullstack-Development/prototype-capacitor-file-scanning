@@ -7,6 +7,6 @@
 
 #import <Capacitor/Capacitor.h>
 
-CAP_PLUGIN(EchoPlugin, "Echo",
+CAP_PLUGIN(MediaUploaderPlugin, "FileUploader",
   CAP_PLUGIN_METHOD(echo, CAPPluginReturnPromise);
 )

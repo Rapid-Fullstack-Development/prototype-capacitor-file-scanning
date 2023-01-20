@@ -7,10 +7,10 @@
 
 import Capacitor
 
-@objc(EchoPlugin)
-public class EchoPlugin: CAPPlugin {
+@objc(MediaUploaderPlugin)
+public class MediaUploaderPlugin: CAPPlugin {
   @objc func echo(_ call: CAPPluginCall) {
-    print("*********** echo ******************")
+    print("*********** MediaUploaderPlugin ******************")
     let value = call.getString("value") ?? ""
     call.resolve([
         "value": value

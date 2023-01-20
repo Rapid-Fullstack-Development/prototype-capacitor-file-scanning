@@ -1,7 +1,6 @@
 import { SplashScreen } from '@capacitor/splash-screen';
 import { registerPlugin } from '@capacitor/core';
 
-const EchoPlugin = registerPlugin('Echo');
 const FileUploader = registerPlugin('FileUploader');
 
 window.customElements.define(
@@ -90,7 +89,7 @@ window.customElements.define(
 
             console.log(`Doing echo!`); //fio:
 
-            EchoPlugin.echo({ value: "hello world" })
+            FileUploader.echo({ value: "hello world" })
               .then(result => {
                 console.log(`Got echo: `);
                 console.log(result);
