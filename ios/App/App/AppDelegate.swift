@@ -8,7 +8,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   var window: UIWindow?
   
   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-
+    //
+    //TODO: Do this when the app goes into the background.
     //
     // https://stackoverflow.com/a/68736333
     // https://stackoverflow.com/a/58101161
@@ -17,35 +18,35 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // https://stackoverflow.com/a/61480850
     // https://www.andyibanez.com/posts/modern-background-tasks-ios13/
     // https://developer.apple.com/documentation/backgroundtasks/starting_and_terminating_tasks_during_development
-    let id = "com.ash.capacitor-file-scanning-prototype"
-    BGTaskScheduler.shared.register(forTaskWithIdentifier: id, using: nil) { task in
-      // To run/debug this task:
-      // - set a breakpoint at the bottom of "init"
-      // - hit the breakpoint
-      // - enter into the debugger:
-      //     e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.ash.iOS-file-scanning-prototype.uploader"]
-      // - resume the debugger and the task should kick off.
-      let mediaUploader = MediaUploader()
-      mediaUploader.scanMedia()
-    }
-    
-    let request = BGProcessingTaskRequest(identifier: id)
-    // request.requiresExternalPower = true
-    // request.requiresNetworkConnectivity = true
-    do {
-      try BGTaskScheduler.shared.submit(request)
-    }
-    catch {
-      print(error)
-    }
-    
-    print("Submitted task")
+//    let id = "com.ash.capacitor-file-scanning-prototype"
+//    BGTaskScheduler.shared.register(forTaskWithIdentifier: id, using: nil) { task in
+//      // To run/debug this task:
+//      // - set a breakpoint at the bottom of "init"
+//      // - hit the breakpoint
+//      // - enter into the debugger:
+//      //     e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.ash.iOS-file-scanning-prototype.uploader"]
+//      // - resume the debugger and the task should kick off.
+//      let mediaUploader = MediaUploader()
+//      mediaUploader.scanMedia()
+//    }
+//
+//    let request = BGProcessingTaskRequest(identifier: id)
+//    // request.requiresExternalPower = true
+//    // request.requiresNetworkConnectivity = true
+//    do {
+//      try BGTaskScheduler.shared.submit(request)
+//    }
+//    catch {
+//      print(error)
+//    }
+//
+//    print("Submitted task")
     
     //
     // Do the scanning directly until we put the app in the background.
     //
-    let mediaUploader = MediaUploader()
-    mediaUploader.scanMedia()
+//    let mediaUploader = MediaUploader()
+//    mediaUploader.scanMedia()
     
     return true
   }

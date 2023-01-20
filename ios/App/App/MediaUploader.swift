@@ -21,9 +21,23 @@ struct FileDetails : Codable {
   let width: Int
   let height: Int
   var location: String?
+  let creationDate: Date
 }
 
 struct MediaUploader {
+    
+  public static let instance = MediaUploader()
+  
+  //
+  // Setting to true when the work is running.
+  //
+  public static var running = false;
+
+  //
+  // Setting this to true aborts the work.
+  //
+  public static var stopWork = false;
+
   
   //
   // Errors thrown during photo operations.
@@ -77,53 +91,6 @@ struct MediaUploader {
     }
   }
     
-  //
-  // Errors thrown during permission requests
-  // Like `PHAuthorizationStatus` but without `unknown` case
-  //
-  public enum PermissionError: Swift.Error {
-    // Thrown if the permission was denied
-    case denied
-    // Thrown if the permission could not be determined
-    case notDetermined
-    // Thrown if the access was restricted
-    case restricted
-    // Thrown if an unknown error occurred
-    case unknown
-  }
-  
-  //
-  // Requests the user's permission to the photo library
-  //
-  // - Parameter completion: a closure which gets a `Result` (`Void` on `success` and `Error` on `failure`)
-  //
-  private func requestPermission() async throws {
-    return try await withCheckedThrowingContinuation { continuation in
-      let handler: (PHAuthorizationStatus) -> Void = { authorizationStatus in
-        DispatchQueue.main.async {
-          switch authorizationStatus {
-          case .authorized, .limited:
-            continuation.resume(with: .success(()))
-          case .denied:
-            continuation.resume(with: .failure(PermissionError.denied))
-          case .restricted:
-            continuation.resume(with: .failure(PermissionError.restricted))
-          case .notDetermined:
-            continuation.resume(with: .failure(PermissionError.notDetermined))
-          @unknown default:
-            continuation.resume(with: .failure(PermissionError.unknown))
-          }
-        }
-      }
-      
-      if #available(iOS 14, macOS 11, macCatalyst 14, tvOS 14, *) {
-        PHPhotoLibrary.requestAuthorization(for: .readWrite, handler: handler)
-      } else {
-        PHPhotoLibrary.requestAuthorization(handler)
-      }
-    }
-  }
-  
   //
   // Computes the hash of the data.
   //
@@ -246,7 +213,7 @@ struct MediaUploader {
   }
   
   private func uploadAsset(assetLocalId: String, uploadList: UserDefaults) async throws -> Void {
-    let jsonString = uploadList.string(forKey: assetIdPrefix + assetLocalId)!
+    let jsonString = uploadList.string(forKey: Self.assetIdPrefix + assetLocalId)!
     var fileDetails = try JSONDecoder().decode(FileDetails.self, from: jsonString.data(using: .utf8)!)
     if fileDetails.uploaded {
       print("Asset already marked as uploaded " + assetLocalId)
@@ -305,7 +272,7 @@ struct MediaUploader {
 
       // Update record in local storage.
       let jsonData = try JSONEncoder().encode(fileDetails)
-      uploadList.set(String(data: jsonData, encoding: .utf8)!, forKey: assetIdPrefix + asset.localIdentifier)
+      uploadList.set(String(data: jsonData, encoding: .utf8)!, forKey: Self.assetIdPrefix + asset.localIdentifier)
     }
     
     //
@@ -318,7 +285,7 @@ struct MediaUploader {
 
       // Update record in local storage.
       let jsonData = try JSONEncoder().encode(fileDetails)
-      uploadList.set(String(data: jsonData, encoding: .utf8)!, forKey: assetIdPrefix + asset.localIdentifier)
+      uploadList.set(String(data: jsonData, encoding: .utf8)!, forKey: Self.assetIdPrefix + asset.localIdentifier)
       return
     }
         
@@ -328,16 +295,16 @@ struct MediaUploader {
       if fileDetails.location != nil {
         // Update record in local storage.
         let jsonData = try JSONEncoder().encode(fileDetails)
-        uploadList.set(String(data: jsonData, encoding: .utf8)!, forKey: assetIdPrefix + asset.localIdentifier)
+        uploadList.set(String(data: jsonData, encoding: .utf8)!, forKey: Self.assetIdPrefix + asset.localIdentifier)
       }
     }
     
     //
     // Test to get EXIF data.
     //
-    let properties = try await getAssetProperties(asset)
-    print("Got properties:")
-    print(properties)
+//    let properties = try await getAssetProperties(asset)
+//    print("Got properties:")
+//    print(properties)
     
     //
     // Now actually upload the file.
@@ -350,30 +317,17 @@ struct MediaUploader {
     fileDetails.uploaded = true
     
     let jsonData = try JSONEncoder().encode(fileDetails)
-    uploadList.set(String(data: jsonData, encoding: .utf8)!, forKey: assetIdPrefix + asset.localIdentifier)
+    uploadList.set(String(data: jsonData, encoding: .utf8)!, forKey: Self.assetIdPrefix + asset.localIdentifier)
   }
   
-  private let assetIdPrefix = "xid_";
+  public static let assetIdPrefix = "xid_";
   
   //
   // Internal and async method to scan for media and upload.
   //
   private func _scanMedia() async throws -> Void {
-    try await requestPermission()
     
     let uploadList = UserDefaults(suiteName: "local-media")!
-
-    //
-    // Remove previous settings.
-    //
-    // https://stackoverflow.com/a/43402172
-    //
-    for key in uploadList.dictionaryRepresentation().keys {
-      if key.starts(with: assetIdPrefix) {
-        print("Removing " + key)
-        uploadList.removeObject(forKey: key)
-      }
-    }
 
     let options = PHFetchOptions()
     //todo: http://www.gfrigerio.com/read-exif-data-of-pictures/
@@ -390,7 +344,12 @@ struct MediaUploader {
     let jsonEncoder = JSONEncoder();
 
     for asset in items {
-      let existingAssetJson = uploadList.string(forKey: assetIdPrefix + asset.localIdentifier)
+      if Self.stopWork {
+        print("Stopped file scan")
+        return;
+      }
+      
+      let existingAssetJson = uploadList.string(forKey: Self.assetIdPrefix + asset.localIdentifier)
       if (existingAssetJson == nil) {
         // No record yet for this asset.
         let resource = PHAssetResource.assetResources(for: asset)[0]
@@ -403,11 +362,12 @@ struct MediaUploader {
           hash: nil,
           uploaded: false,
           width: resource.pixelWidth,
-          height: resource.pixelHeight
+          height: resource.pixelHeight,
+          creationDate: asset.creationDate!
         )
         let jsonData = try jsonEncoder.encode(fileDetails)
         let jsonString = String(data: jsonData, encoding: .utf8)!
-        uploadList.set(jsonString, forKey: assetIdPrefix + asset.localIdentifier)
+        uploadList.set(jsonString, forKey: Self.assetIdPrefix + asset.localIdentifier)
       }
       else {
         print("Already have record for " + asset.localIdentifier)
@@ -426,6 +386,10 @@ struct MediaUploader {
     print("********** Uploading assets ************")
     
     for asset in items {
+      if Self.stopWork {
+        print("Stopped file scan")
+        return;
+      }
       try await uploadAsset(assetLocalId: asset.localIdentifier, uploadList: uploadList)
     }
     
@@ -438,10 +402,27 @@ struct MediaUploader {
   public func scanMedia() {
     Task {
       do {
+        Self.running = true;
+        Self.stopWork = false;
         try await _scanMedia();
       }
       catch {
         print("scanMedia failed with error: \(error)")
+      }
+    }
+  }
+  
+  //
+  // Remove previous settings.
+  //
+  // https://stackoverflow.com/a/43402172
+  //
+  public func clearStorage() {
+    let uploadList = UserDefaults(suiteName: "local-media")!
+    for key in uploadList.dictionaryRepresentation().keys {
+      if key.starts(with: Self.assetIdPrefix) {
+        // print("Removing " + key)
+        uploadList.removeObject(forKey: key)
       }
     }
   }
