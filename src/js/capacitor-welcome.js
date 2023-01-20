@@ -1,6 +1,7 @@
 import { SplashScreen } from '@capacitor/splash-screen';
 import { registerPlugin } from '@capacitor/core';
 
+const EchoPlugin = registerPlugin('Echo');
 const FileUploader = registerPlugin('FileUploader');
 
 window.customElements.define(
@@ -86,6 +87,18 @@ window.customElements.define(
 
         connectedCallback() {
             const self = this;
+
+            console.log(`Doing echo!`); //fio:
+
+            EchoPlugin.echo({ value: "hello world" })
+              .then(result => {
+                console.log(`Got echo: `);
+                console.log(result);
+              })
+              .catch(err => {
+                console.error(`Failed to run plugin:`);
+                console.error(err);
+              });
 
             const backend = import.meta.env.VITE_BACKEND_URL;
             if (!backend) {
