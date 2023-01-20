@@ -34,7 +34,10 @@ public class FileUploader extends Plugin {
     public void updateSettings(PluginCall call) {
         SharedPreferences settings = this.getActivity().getApplicationContext().getSharedPreferences("settings", MODE_PRIVATE);
         SharedPreferences.Editor editor = settings.edit();
-        editor.putString("backend", call.getString("backend"));
+        String backendURL = call.getString("backend");
+        Log.i("Dbg", "Setting backend to " + backendURL);
+        editor.putString("backend", backendURL);
+        editor.commit();
         call.resolve();
     }
 
