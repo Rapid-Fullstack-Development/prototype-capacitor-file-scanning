@@ -4,6 +4,12 @@ import static android.content.Context.MODE_PRIVATE;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.location.Address;
+import android.location.Geocoder;
+import android.media.ExifInterface;
+import android.media.ThumbnailUtils;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.util.Log;
@@ -16,6 +22,8 @@ import com.google.gson.Gson;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -24,6 +32,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 class FileDetails {
@@ -85,20 +95,33 @@ public class UploadWorker extends Worker {
     @Override
     public Result doWork() {
 
+        //
+        // Delete all recorded entries.
+        //
+//        SharedPreferences.Editor editor = filePrefs.edit();
+//        editor.clear();
+//        editor.commit();
+
         //TODO: Would be good to mark all previously recorded files as "unchecked".
 
         this.running = true;
         this.stopWork = false;
+
+        Log.v("Dbg", "Scanning file system.");
 
         //
         // Scan the file system for images.
         //
         this.scanFilesystem();
 
+        Log.v("Dbg", "Uploading files.");
+
         //
         // Upload files that have been found.
         //
         this.uploadFiles();
+
+        Log.v("Dbg", "Finished scanning and uploading.");
 
         this.running = false;
         this.stopWork = false; // Reset, in case the work was stopped.
@@ -310,6 +333,19 @@ public class UploadWorker extends Worker {
     }
 
     //
+    // Converts a bitmap to an input stream for upload.
+    //
+    // http://www.java2s.com/example/android/graphics/convert-bitmap-to-inputstream.html
+    // https://developer.android.com/reference/android/graphics/Bitmap
+    //
+    private InputStream bitmap2InputStream(Bitmap bm, int quality) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bm.compress(Bitmap.CompressFormat.JPEG, quality, baos);
+        InputStream inputStream = new ByteArrayInputStream(baos.toByteArray());
+        return inputStream;
+    }
+
+    //
     // Uploads a file to the Photosphere backend.
     //
     // https://developer.android.com/reference/java/net/HttpURLConnection
@@ -318,6 +354,13 @@ public class UploadWorker extends Worker {
     private void uploadFile(File file, String hash, String contentType) {
         HttpURLConnection urlConnection = null;
         try {
+            // https://developer.android.com/reference/android/graphics/Bitmap
+            Bitmap origImage = BitmapFactory.decodeFile(file.getPath()); // TODO: This might load the entire file!
+
+            // https://stackoverflow.com/a/6099182
+            int width = origImage.getWidth();
+            int height = origImage.getHeight();
+
             String baseURL = settings.getString("backend", null);
             URL url = new URL(baseURL + "/asset");
             urlConnection = (HttpURLConnection) url.openConnection();
@@ -328,12 +371,56 @@ public class UploadWorker extends Worker {
             urlConnection.setChunkedStreamingMode(0);
             urlConnection.setRequestProperty("content-type", contentType);
             urlConnection.setRequestProperty("file-name", file.getName());
-            urlConnection.setRequestProperty("width", "256");
-            urlConnection.setRequestProperty("height", "256");
+            urlConnection.setRequestProperty("width", Integer.toString(width));
+            urlConnection.setRequestProperty("height", Integer.toString(height));
             urlConnection.setRequestProperty("hash", hash);
 
+            //
+            // Get exif data.
+            // TODO: Be good to convert this to JSON to so it can be uploaded to the backend.
+            //
+            // https://developer.android.com/reference/android/media/ExifInterface
+            //
+            // ExifInterface exifInterface = new ExifInterface(new FileInputStream(file));
+            ExifInterface exifInterface = new ExifInterface(file);
+
+            Log.i("Dbg", "=============================== Location =============================");
+
+            float[] latLong = new float[2];
+            if (exifInterface.getLatLong(latLong)) {
+                Log.i("Dbg", "Latitude: " + latLong[0]);
+                Log.i("Dbg", "Longitude: " + latLong[1]);
+
+                //
+                // Reverse geocode the location.
+                //
+                Geocoder geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
+                // https://developer.android.com/reference/android/location/Address
+                List<Address> addresses = geocoder.getFromLocation(latLong[0], latLong[1], 1);
+                if (addresses.size() > 0) {
+                    Log.i("Dbg", addresses.get(0).toString()); //TODO: How can I format this correctly?
+                }
+                else {
+                    Log.i("Dbg", "No location!");
+                }
+            }
+
+            Log.i("Dbg", "============================= Exif =============================");
+
+            for (String attribute : exifAttributes) {
+                String value = exifInterface.getAttribute(attribute);
+                Log.i("Dbg", attribute + " = " + value);
+            }
+
+            // Creates a thumbnail for upload.
+            // TODO: Would like to get the aspect ratio correct.
+            // https://stackoverflow.com/a/12294235
+            Bitmap thumbImage = ThumbnailUtils.extractThumbnail(origImage, 100, 100);
+            BufferedInputStream bis = new BufferedInputStream(bitmap2InputStream(thumbImage, 30));
+
             BufferedOutputStream bos = new BufferedOutputStream(urlConnection.getOutputStream());
-            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+            // Uploads the original file.
+            // BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
 
             int i;
             byte[] buffer = new byte[4096];
@@ -362,4 +449,30 @@ public class UploadWorker extends Worker {
             }
         }
     }
+
+    //
+    // All exif attributes.
+    //
+    // https://gist.github.com/hypothermic/952fd9c49cbdcbab58177a5c0eaf72a5
+    //
+    private static final String[] exifAttributes = new String[] {
+            "FNumber", "ApertureValue", "Artist", "BitsPerSample", "BrightnessValue", "CFAPattern", "ColorSpace", "ComponentsConfiguration",
+            "CompressedBitsPerPixel", "Compression", "Contrast", "Copyright", "CustomRendered", "DateTime", "DateTimeDigitized", "DateTimeOriginal",
+            "DefaultCropSize", "DeviceSettingDescription","DigitalZoomRatio", "DNGVersion", "ExifVersion", "ExposureBiasValue", "ExposureIndex",
+            "ExposureMode",  "ExposureProgram", "ExposureTime", "FileSource", "Flash", "FlashpixVersion", "FlashEnergy", "FocalLength", "FocalLengthIn35mmFilm",
+            "FocalPlaneResolutionUnit", "FocalPlaneXResolution", "FocalPlaneYResolution", "FNumber", "GainControl", "GPSAltitude", "GPSAltitudeRef",
+            "GPSAreaInformation", "GPSDateStamp", "GPSDestBearing", "GPSDestBearingRef", "GPSDestDistance", "GPSDestDistanceRef", "GPSDestLatitude",
+            "GPSDestLatitudeRef", "GPSDestLongitude", "GPSDestLongitudeRef", "GPSDifferential", "GPSDOP", "GPSImgDirection", "GPSImgDirectionRef",
+            "GPSLatitude", "GPSLatitudeRef", "GPSLongitude", "GPSLongitudeRef", "GPSMapDatum", "GPSMeasureMode", "GPSProcessingMethod", "GPSSatellites",
+            "GPSSpeed", "GPSSpeedRef", "GPSStatus", "GPSTimeStamp", "GPSTrack", "GPSTrackRef", "GPSVersionID", "ImageDescription", "ImageLength", "ImageUniqueID",
+            "ImageWidth", "InteroperabilityIndex", "ISOSpeedRatings", "ISOSpeedRatings", "JPEGInterchangeFormat", "JPEGInterchangeFormatLength", "LightSource",
+            "Make", "MakerNote", "MaxApertureValue", "MeteringMode", "Model", "NewSubfileType", "OECF", "AspectFrame", "PreviewImageLength", "PreviewImageStart",
+            "ThumbnailImage", "Orientation", "PhotometricInterpretation", "PixelXDimension", "PixelYDimension", "PlanarConfiguration", "PrimaryChromaticities",
+            "ReferenceBlackWhite", "RelatedSoundFile", "ResolutionUnit", "RowsPerStrip", "ISO", "JpgFromRaw", "SensorBottomBorder", "SensorLeftBorder",
+            "SensorRightBorder", "SensorTopBorder", "SamplesPerPixel", "Saturation", "SceneCaptureType", "SceneType", "SensingMethod", "Sharpness",
+            "ShutterSpeedValue", "Software", "SpatialFrequencyResponse", "SpectralSensitivity", "StripByteCounts", "StripOffsets", "SubfileType",
+            "SubjectArea", "SubjectDistance", "SubjectDistanceRange", "SubjectLocation", "SubSecTime", "SubSecTimeDigitized", "SubSecTimeDigitized",
+            "SubSecTimeOriginal", "SubSecTimeOriginal", "ThumbnailImageLength", "ThumbnailImageWidth", "TransferFunction", "UserComment", "WhiteBalance",
+            "WhitePoint", "XResolution", "YCbCrCoefficients", "YCbCrPositioning", "YCbCrSubSampling", "YResolution"
+    };
 }
