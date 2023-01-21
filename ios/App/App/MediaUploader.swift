@@ -323,10 +323,13 @@ struct MediaUploader {
   public static let assetIdPrefix = "xid_";
   
   //
-  // Internal and async method to scan for media and upload.
+  // Starts scanning and uploading of media.
   //
-  private func _scanMedia() async throws -> Void {
-    
+  public func scanMedia() async throws -> Void {
+
+    Self.running = true;
+    Self.stopWork = false;
+
     let uploadList = UserDefaults(suiteName: "local-media")!
 
     let options = PHFetchOptions()
@@ -351,6 +354,7 @@ struct MediaUploader {
       
       let existingAssetJson = uploadList.string(forKey: Self.assetIdPrefix + asset.localIdentifier)
       if (existingAssetJson == nil) {
+        print("Saving record for asset " + asset.localIdentifier)
         // No record yet for this asset.
         let resource = PHAssetResource.assetResources(for: asset)[0]
         let mimetype = UTType(resource.uniformTypeIdentifier)!.preferredMIMEType!
@@ -394,22 +398,6 @@ struct MediaUploader {
     }
     
     print("========== Done ===========")
-  }
-  
-  //
-  // Starts scanning and uploading of media.
-  //
-  public func scanMedia() {
-    Task {
-      do {
-        Self.running = true;
-        Self.stopWork = false;
-        try await _scanMedia();
-      }
-      catch {
-        print("scanMedia failed with error: \(error)")
-      }
-    }
   }
   
   //

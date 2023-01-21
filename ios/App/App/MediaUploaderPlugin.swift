@@ -12,7 +12,6 @@ import Photos
 public class MediaUploaderPlugin: CAPPlugin {
   
   @objc func updateSettings(_ call: CAPPluginCall) {
-//    MediaUploader.instance.clearStorage()
     let backendURL = call.getString("backend")!
     print("Setting backend to " + backendURL)
     UserDefaults.standard.set(backendURL, forKey: "backend")
@@ -72,7 +71,6 @@ public class MediaUploaderPlugin: CAPPlugin {
     }
   }
   
-  
   @objc public func requestPermissions(_ call: CAPPluginCall) async {
     do {
       try await requestPermission()
@@ -91,10 +89,18 @@ public class MediaUploaderPlugin: CAPPlugin {
   
   @objc func startSync(_ call: CAPPluginCall) {
     print("Starting file scan")
-    MediaUploader.instance.scanMedia()
     call.resolve()
+    
+    Task {
+      do {
+        try await MediaUploader.instance.scanMedia();
+        print("Finished file scan")
+      }
+      catch {
+        print("scanMedia failed with error: \(error)")
+      }
+    }
   }
-  
   
   @objc func stopSync(_ call: CAPPluginCall) {
     if !MediaUploader.running {

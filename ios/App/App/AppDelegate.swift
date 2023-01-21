@@ -7,46 +7,65 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   
   var window: UIWindow?
   
+  let backgroundTaskId = "com.ash.capacitor-file-scanning-prototype"
+
   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-    //
-    //TODO: Do this when the app goes into the background.
+//    MediaUploader.instance.clearStorage()
+
     //
     // https://stackoverflow.com/a/68736333
     // https://stackoverflow.com/a/58101161
     // https://stackoverflow.com/a/61929751
+    // https://developer.apple.com/documentation/backgroundtasks
     // https://developer.apple.com/documentation/backgroundtasks/bgtaskscheduler
     // https://stackoverflow.com/a/61480850
     // https://www.andyibanez.com/posts/modern-background-tasks-ios13/
-    // https://developer.apple.com/documentation/backgroundtasks/starting_and_terminating_tasks_during_development
-//    let id = "com.ash.capacitor-file-scanning-prototype"
-//    BGTaskScheduler.shared.register(forTaskWithIdentifier: id, using: nil) { task in
-//      // To run/debug this task:
-//      // - set a breakpoint at the bottom of "init"
-//      // - hit the breakpoint
-//      // - enter into the debugger:
-//      //     e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.ash.iOS-file-scanning-prototype.uploader"]
-//      // - resume the debugger and the task should kick off.
-//      let mediaUploader = MediaUploader()
-//      mediaUploader.scanMedia()
-//    }
-//
-//    let request = BGProcessingTaskRequest(identifier: id)
-//    // request.requiresExternalPower = true
-//    // request.requiresNetworkConnectivity = true
-//    do {
-//      try BGTaskScheduler.shared.submit(request)
-//    }
-//    catch {
-//      print(error)
-//    }
-//
-//    print("Submitted task")
+    BGTaskScheduler.shared.register(forTaskWithIdentifier: backgroundTaskId, using: nil) { task in
+      
+      //
+      // This might only be allowed to run for 5 minutes!
+      // Will it then run again later?
+      //
+      // https://stackoverflow.com/a/69532232
+      //
+      // TODO: I need to restructure the scanning code so that it can pickup where it left.
+      //
+      
+      print("! Running background task")
+      
+      //
+      // To run/debug this background task:
+      //
+      // - set a breakpoint after submitting the background task
+      // - hit the breakpoint
+      // - enter into the debugger:
+      //     e -l objc -- (void)[[BGTaskScheduler sharedScheduler] _simulateLaunchForTaskWithIdentifier:@"com.ash.capacitor-file-scanning-prototype"]
+      // - resume the debugger and the task should kick off.
+      //
+      // https://developer.apple.com/documentation/backgroundtasks/starting_and_terminating_tasks_during_development
+      //
+
+      // https://itnext.io/swift-ios-13-backgroundtasks-framework-background-app-refresh-in-4-steps-3da32e65bc3d
+      task.expirationHandler = {
+        print("! Task expired")
+        task.setTaskCompleted(success: false) // This should reschdule the task.
+      }
+      
+      Task {
+        do {
+          try await MediaUploader.instance.scanMedia();
+          print("! Task completed")
+          task.setTaskCompleted(success: true)
+        }
+        catch {
+          print("! scanMedia failed with error: \(error)")
+          task.setTaskCompleted(success: false) // This should reschedule the task.
+        }
+      }
+    }
     
-    //
-    // Do the scanning directly until we put the app in the background.
-    //
-//    let mediaUploader = MediaUploader()
-//    mediaUploader.scanMedia()
+    // Uncomment this to debug background processing.
+//    submitBackgroundProcessing()
     
     return true
   }
@@ -59,10 +78,33 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
   func applicationDidEnterBackground(_ application: UIApplication) {
     // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
     // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
+    
+    print("App to background")
+    
+  }
+  
+  private func submitBackgroundProcessing() {
+    let request = BGProcessingTaskRequest(identifier: backgroundTaskId)
+    //TODO: Allow use to configure these options.
+    // request.requiresExternalPower = true
+    // request.requiresNetworkConnectivity = true
+    do {
+      try BGTaskScheduler.shared.submit(request)
+    }
+    catch {
+      print(error)
+    }
+
+    print("Submitted task")
+
   }
   
   func applicationWillEnterForeground(_ application: UIApplication) {
     // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
+    print("App to foreground")
+    
+    //todo: if the task it not already running maybe start it?
+      // record in settings if the task should already be running.
   }
   
   func applicationDidBecomeActive(_ application: UIApplication) {
