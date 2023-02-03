@@ -20,6 +20,8 @@ import androidx.work.WorkerParameters;
 
 import com.google.gson.Gson;
 
+import org.json.JSONObject;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
@@ -31,6 +33,7 @@ import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -202,7 +205,7 @@ public class UploadWorker extends Worker {
                     // https://stackoverflow.com/a/18463758/25868
                     Gson gson = new Gson();
                     Date lastModifiedDate = new Date(file.lastModified());
-                    String json = gson.toJson(new FileDetails(file.getName(), file.getPath(), "image/jpg", lastModifiedDate));
+                    String json = gson.toJson(new FileDetails(file.getName(), file.getPath(), "image/jpeg", lastModifiedDate));
                     editor.putString(file.getPath(), json);
                     editor.commit();
                 }
@@ -361,20 +364,6 @@ public class UploadWorker extends Worker {
             int width = origImage.getWidth();
             int height = origImage.getHeight();
 
-            String baseURL = settings.getString("backend", null);
-            URL url = new URL(baseURL + "/asset");
-            urlConnection = (HttpURLConnection) url.openConnection();
-
-            urlConnection.setUseCaches(false);
-            urlConnection.setDoOutput(true);
-            urlConnection.setRequestMethod("POST");
-            urlConnection.setChunkedStreamingMode(0);
-            urlConnection.setRequestProperty("content-type", contentType);
-            urlConnection.setRequestProperty("file-name", file.getName());
-            urlConnection.setRequestProperty("width", Integer.toString(width));
-            urlConnection.setRequestProperty("height", Integer.toString(height));
-            urlConnection.setRequestProperty("hash", hash);
-
             //
             // Get exif data.
             // TODO: Be good to convert this to JSON to so it can be uploaded to the backend.
@@ -416,11 +405,34 @@ public class UploadWorker extends Worker {
             // TODO: Would like to get the aspect ratio correct.
             // https://stackoverflow.com/a/12294235
             Bitmap thumbImage = ThumbnailUtils.extractThumbnail(origImage, 100, 100);
-            BufferedInputStream bis = new BufferedInputStream(bitmap2InputStream(thumbImage, 30));
+
+            ByteArrayOutputStream thumbOutputStream = new ByteArrayOutputStream();
+            thumbImage.compress(Bitmap.CompressFormat.JPEG, 30, thumbOutputStream);
+            String thumbnail = new String(Base64.getEncoder().encode(thumbOutputStream.toByteArray()));
+
+            JSONObject metadata = new JSONObject();
+            metadata.put("contentType", contentType);
+            metadata.put("thumbContentType", "image/jpeg");
+            metadata.put("fileName", file.getName());
+            metadata.put("width", width);
+            metadata.put("height", height);
+            metadata.put("hash", hash);
+            
+            String baseURL = settings.getString("backend", null);
+            URL url = new URL(baseURL + "/asset");
+            urlConnection = (HttpURLConnection) url.openConnection();
+
+            urlConnection.setUseCaches(false);
+            urlConnection.setDoOutput(true);
+            urlConnection.setRequestMethod("POST");
+            urlConnection.setChunkedStreamingMode(0);
+            urlConnection.setRequestProperty("content-type", contentType);
+            urlConnection.setRequestProperty("metadata", metadata.toString());
+            urlConnection.setRequestProperty("thumbnail", thumbnail);
 
             BufferedOutputStream bos = new BufferedOutputStream(urlConnection.getOutputStream());
             // Uploads the original file.
-            // BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
 
             int i;
             byte[] buffer = new byte[4096];
