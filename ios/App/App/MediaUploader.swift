@@ -116,12 +116,13 @@ struct MediaUploader {
   //
   // Uploads an asset to the backend.
   //
-  private func uploadFile(_ contentType: String, _ fileDetails: FileDetails, _ assetData: Data) async throws {
+  private func uploadFile(_ contentType: String, _ fileDetails: FileDetails, _ assetData: Data, _ thumbData: Data) async throws {
     let url = URL(string: "http://192.168.20.14:3000/asset")!
     let session = URLSession.shared
     var request = URLRequest(url: url)
     request.httpMethod = "POST";
     request.setValue(contentType, forHTTPHeaderField: "content-type")
+    request.setValue("image/jpeg", forHTTPHeaderField: "thumb-content-type")
     request.setValue(fileDetails.name, forHTTPHeaderField: "file-name")
     request.setValue(String(fileDetails.width), forHTTPHeaderField: "width")
     request.setValue(String(fileDetails.height), forHTTPHeaderField: "height")
@@ -131,7 +132,11 @@ struct MediaUploader {
     //      Ideally will use multipart form data to upload location, exif data, thumbnail and full asset.
     //
     request.setValue(fileDetails.location, forHTTPHeaderField: "location")
+    request.setValue(thumbData.base64EncodedString(), forHTTPHeaderField: "thumbnail")
     request.httpBody = assetData
+    
+    //print("Thumb data:")
+    //print(thumbData.base64EncodedString())
     
     //todo: convert this to the async version!
     try await withCheckedThrowingContinuation { continuation in
@@ -264,7 +269,7 @@ struct MediaUploader {
         image.draw(in: CGRect(origin: .zero, size: scaledImageSize))
     }
     
-    assetData = scaledImage.jpegData(compressionQuality: 0.5)!
+    let thumbData = scaledImage.jpegData(compressionQuality: 0.5)!
 
     if fileDetails.hash == nil {
       // Compute a hash for the file.
@@ -309,7 +314,7 @@ struct MediaUploader {
     //
     // Now actually upload the file.
     //
-    try await uploadFile(contentType, fileDetails, assetData)
+    try await uploadFile(contentType, fileDetails, assetData, thumbData)
     
     //
     // Record that the file was uploaded.
