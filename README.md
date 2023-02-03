@@ -1,4 +1,4 @@
-# prototype-file-scanning-with-capacitor
+# prototype-capacitor-file-scanning
 
 A prototype for file scanning on mobile device using [Capacitor](https://capacitorjs.com/).
 
@@ -17,7 +17,7 @@ https://github.com/Rapid-Fullstack-Development/photosphere-monolithic-backend
 Clone the repository and install dependencies:
 
 ```bash
-cd prototype-file-scanning-with-capacitor
+cd prototype-capacitor-file-scanning
 npm install
 ```
 
@@ -42,3 +42,17 @@ npx cap open android
 ```
 
 Now build and run using Android Studio.
+
+## Build and run for iOS
+
+You need Xcode installed for this.
+
+```bash 
+export VITE_BACKEND_URL=<url-or-lan-ip-for-your-backend>
+npm run build 
+npx cap update
+npx cap sync
+npx cap open ios
+```
+
+Now build and run using Xcode.

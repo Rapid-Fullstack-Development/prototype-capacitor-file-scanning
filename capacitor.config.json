@@ -1,5 +1,5 @@
 {
-  "appId": "com.example.app",
+  "appId": "com.example.capacitor_file_scanning_prototype",
   "appName": "capacitor-file-scanning-prototype",
   "bundledWebRuntime": false,
   "webDir": "dist",

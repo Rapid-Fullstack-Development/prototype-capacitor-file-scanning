@@ -95,8 +95,12 @@ window.customElements.define(
                 console.log(`VITE_BACKEND_URL environment variable is set to ${backend}`);
             }
             FileUploader.updateSettings({
-                backend: backend,
-            });
+                  backend: backend,
+              })
+              .catch(err => {
+                console.error("Failed to update settings:");
+                console.error(err);
+              });
 
             const startSyncButton = self.shadowRoot.querySelector('#start-sync')
             startSyncButton.addEventListener('click', async function (e) {
@@ -156,7 +160,12 @@ window.customElements.define(
             function checkSyncStatus() {
                 FileUploader.getFiles()
                     .then(result => {
+                        console.log("Files:");
                         console.log(result);
+                    })
+                    .catch(err => {
+                      console.error("Error getting files:");
+                      console.error(err);
                     });
 
                 FileUploader.checkSyncStatus()
