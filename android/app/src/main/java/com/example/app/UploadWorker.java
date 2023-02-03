@@ -373,12 +373,13 @@ public class UploadWorker extends Worker {
             // ExifInterface exifInterface = new ExifInterface(new FileInputStream(file));
             ExifInterface exifInterface = new ExifInterface(file);
 
-            Log.i("Dbg", "=============================== Location =============================");
+            //Log.i("Dbg", "=============================== Location =============================");
 
             float[] latLong = new float[2];
+            String location = null;
             if (exifInterface.getLatLong(latLong)) {
-                Log.i("Dbg", "Latitude: " + latLong[0]);
-                Log.i("Dbg", "Longitude: " + latLong[1]);
+                //Log.i("Dbg", "Latitude: " + latLong[0]);
+                //Log.i("Dbg", "Longitude: " + latLong[1]);
 
                 //
                 // Reverse geocode the location.
@@ -387,18 +388,22 @@ public class UploadWorker extends Worker {
                 // https://developer.android.com/reference/android/location/Address
                 List<Address> addresses = geocoder.getFromLocation(latLong[0], latLong[1], 1);
                 if (addresses.size() > 0) {
-                    Log.i("Dbg", addresses.get(0).toString()); //TODO: How can I format this correctly?
+                    //Log.i("Dbg", addresses.get(0).toString());
+                    location = addresses.get(0).toString(); //TODO: How can I format this correctly?
                 }
                 else {
-                    Log.i("Dbg", "No location!");
+                    //Log.i("Dbg", "No location!");
                 }
             }
 
-            Log.i("Dbg", "============================= Exif =============================");
+//            Log.i("Dbg", "============================= Exif =============================");
+
+            JSONObject exif = new JSONObject();
 
             for (String attribute : exifAttributes) {
                 String value = exifInterface.getAttribute(attribute);
-                Log.i("Dbg", attribute + " = " + value);
+                //Log.i("Dbg", attribute + " = " + value);
+                exif.put(attribute, value);
             }
 
             // Creates a thumbnail for upload.
@@ -417,6 +422,10 @@ public class UploadWorker extends Worker {
             metadata.put("width", width);
             metadata.put("height", height);
             metadata.put("hash", hash);
+            metadata.put("exif", exif);
+            if (location != null) {
+                metadata.put("location", location);
+            }
             
             String baseURL = settings.getString("backend", null);
             URL url = new URL(baseURL + "/asset");
